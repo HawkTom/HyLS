@@ -1,0 +1,568 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <omp.h>
+
+#include "utils.h"
+#include "heuristic.h"
+#include "lsoperator.h"
+
+
+
+#define AXVSIZE 15
+
+int req_arc_num = 0; //NRA
+int req_edge_num; //NRE
+int nonreq_arc_num = 0;
+int nonreq_edge_num;
+int vertex_num;
+int vehicle_num;
+int capacity;
+int task_num;
+int total_arc_num;
+int DEPOT;
+int trav_cost[MAX_NODE_TAG_LENGTH][MAX_NODE_TAG_LENGTH];
+int serve_cost[MAX_NODE_TAG_LENGTH][MAX_NODE_TAG_LENGTH];
+int min_cost[MAX_NODE_TAG_LENGTH][MAX_NODE_TAG_LENGTH];
+int shortest_path[MAX_NODE_TAG_LENGTH][MAX_NODE_TAG_LENGTH][MAX_NODE_TAG_LENGTH];
+
+int cost_backup[MAX_NODE_TAG_LENGTH][MAX_NODE_TAG_LENGTH];
+char map[20];
+
+double remain_cap_ratio_lb = 0;
+double remain_cap_ratio_ub = 0.5;
+
+int terminal_condition = 20; //if the best has nevere been changed over 20 iterations, stop the algorithm
+int terminal_duration = 5;
+int debug = 0;
+int logflag = 0;
+char map[20];
+
+
+
+Individual best_si_solution;
+Individual best_di_solution;
+Individual best_swap_solution;
+Individual best_rev_solution;
+Individual best_cross_solution;
+
+Individual best1_si_solution;
+Individual best1_di_solution;
+Individual best1_swap_solution;
+Individual best1_rev_solution;
+Individual best1_cross_solution;
+
+Individual IndiList[20];
+int IndiListLength = 0;
+
+double total_time = 0;
+int best= INF;
+
+
+
+void get_first_solution(Individual *solution, const Task *inst_tasks);
+void process_rmstate(const Task *inst_tasks_vt, Rmstate *rms, Individual *solution);
+int get_additional_cost(Rmstate *rms);
+int update_global_best();
+int update1_global_best();
+void copy_individual(Individual *dest, Individual *src);
+
+
+void method(Individual InitSolution, const Task *inst_tasks_vt);
+void method1(Individual *InitSolution, const Task *inst_tasks_vt);
+void test_arx_size(Individual *InitSolution, const Task *inst_tasks_vt);
+void clear_IndiList();
+
+int main(int argc, char *argv[])
+{   
+    printf("hello world xxx\n");
+
+    char path[30];
+
+
+    // strcpy(map, "egl/egl-e1-A.dat");
+    // strcpy(path, "2/e1-A.dat");
+    // int instance = 1;
+
+    sprintf(map, "egl/egl-%s.dat", argv[1]);
+    sprintf(path, "2/%s.dat", argv[1]);
+    int instance = atoi(argv[2]);
+
+    printf("%s %s %d\n", map, path, instance);
+    // exit(0);
+
+    printf("path: %s\n", map);
+    FILE *fp;
+    if (instance == 1)
+    {
+        fp = fopen(path, "w");
+        if (fp == NULL)
+        {
+            printf("can't open %s\n", path);
+        }
+        fprintf(fp, "%s\n", map);
+    } else
+    {
+        fp = fopen(path, "a");
+        if (fp == NULL)
+        {
+            printf("can't open %s\n", path);
+        }        
+    }
+    
+    // fclose(fp);
+
+    // initial a seed
+    int seed = 1602922520;
+    srand(seed);
+
+    // load map
+    Task inst_tasks[MAX_TASKS_TAG_LENGTH];
+    Task inst_tasks_vt[MAX_TASKS_TAG_LENGTH];
+    Arc inst_arcs[MAX_ARCS_TAG_LENGTH];
+    Vehicles state;
+
+    readMap(inst_tasks, inst_arcs, map);
+    readMap(inst_tasks_vt, inst_arcs, map);
+
+    update_cost(inst_tasks, inst_arcs);
+    mod_dijkstra();
+
+    // use a optimizer to obtain an initial solution
+    Individual firstSolution;
+    get_first_solution(&firstSolution, inst_tasks);
+    // MAENS(inst_tasks, &firstSolution);
+
+    printf("First solution's cost: %d\n", firstSolution.TotalCost);
+
+    // execute the solution and simulate the changes
+    seed = time(NULL) + instance * 7654321;
+    // seed = 1618861877;
+    
+
+    Rmstate rms;
+    nextScenario(&firstSolution, inst_tasks, inst_arcs, &rms, seed);
+    // update graph
+    update_cost(inst_tasks, inst_arcs);
+    mod_dijkstra();
+    // update the solution
+
+
+    construct_virtual_task(inst_tasks, inst_tasks_vt, &rms);
+    Individual InitSolution, GlobalBest;
+    process_rmstate(inst_tasks_vt, &rms, &InitSolution);
+    int additional_cost = get_additional_cost(&rms);
+
+    printf("Instance: %d, seed: %d, addcost: %d\n", instance, seed, additional_cost); 
+
+
+    // the begining of optimizatin for DCARP instance
+    // local search portfolio
+
+    
+
+    fp = fopen(path, "a");
+    fprintf(fp, "instance %d seed %d addcost %d\n", instance, seed, additional_cost);
+    fclose(fp);
+
+    
+    
+    Individual InitSolution0;
+    copy_individual(&InitSolution0, &InitSolution);
+
+    best = INF;
+    IndiListLength = 0;
+    clear_IndiList();
+    
+
+
+    copy_individual(&InitSolution, &InitSolution0);
+    test_arx_size(&InitSolution, inst_tasks_vt);
+    printf("HyLS: %d %f\n", best-additional_cost, total_time);
+    fp = fopen(path, "a");
+    fprintf(fp, "HyLS %d %f\n", best-additional_cost, total_time);
+    fclose(fp);
+
+
+    
+    for (int run = 1; run <= 25; run++)
+    {
+        // int seed2 = time(NULL) + instance * 56483154;
+        // seed2 = 1667685624;
+        int seed2 = rand();
+        srand(seed2);
+
+        Individual MAENSolution;
+        MAENS(inst_tasks_vt, &MAENSolution);
+        printf("run: %d MAENS: %d\n", run, MAENSolution.TotalCost-additional_cost);
+        fp = fopen(path, "a");
+        fprintf(fp, "run %d seed2 %d MAENS %d ", run, seed2, MAENSolution.TotalCost-additional_cost);
+        fclose(fp);
+
+
+        Individual MASDCSolution;
+        srand(seed2);
+        req_edge_num = req_edge_num - rms.point[0];
+        task_num = req_edge_num * 2;
+        MASDC(&MASDCSolution, inst_tasks, rms.point, rms.rcap);
+        printf("run: %d MASDC: %d\n", run, MASDCSolution.TotalCost-additional_cost);
+        req_edge_num = req_edge_num + rms.point[0];
+        task_num = req_edge_num * 2;
+
+        fp = fopen(path, "a");
+        fprintf(fp, "MASDC %d \n", MASDCSolution.TotalCost);
+        fclose(fp);
+    }
+    
+
+
+    return 0;
+}
+
+void clear_IndiList()
+{
+    for (int i = 1; i < 20; i++)
+    {
+        memset(IndiList[i].Sequence, 0, sizeof(IndiList[i].Sequence));
+        memset(IndiList[i].Loads, 0,  sizeof(IndiList[i].Loads));
+        IndiList[i].TotalCost = 0;
+        IndiList[i].TotalVioLoad = 0;
+        IndiList[i].Fitness = 0;
+    }
+}
+
+void test_arx_size(Individual *InitSolution, const Task *inst_tasks_vt)
+{
+    for (int i = 1; i < AXVSIZE; i++)
+    {
+        method1(InitSolution, inst_tasks_vt);
+        if (InitSolution->TotalCost < best)
+        {
+            best = InitSolution->TotalCost;
+        }
+        copy_individual(InitSolution, &IndiList[i]);
+        if (i >= IndiListLength)
+        {
+            break;
+        }
+    }
+}
+
+void method1(Individual *InitSolution, const Task *inst_tasks_vt)
+{
+
+    copy_individual(&best1_si_solution, InitSolution);
+    copy_individual(&best1_di_solution, InitSolution);
+    copy_individual(&best1_swap_solution, InitSolution);
+    copy_individual(&best1_rev_solution, InitSolution);
+    copy_individual(&best1_cross_solution, InitSolution);
+
+    int improves[6];
+    int terminate_flag = 0;
+
+    clock_t start_t, finish_t;
+    start_t = clock();
+    double duration = 0.0, duration1=0.0;
+    
+    while (1)
+    {
+        memset(improves, 0, sizeof(improves));
+        // printf("Log: %d %d\n", InitSolution.TotalCost, additional_cost);
+
+        // improves[1] = client_single_insertion(&InitSolution, inst_tasks_vt);
+        // improves[2] = client_double_insertion(&InitSolution, inst_tasks_vt);
+        // improves[3] = client_swap(&InitSolution, inst_tasks_vt);
+        // improves[4] = client_reverse(&InitSolution, inst_tasks_vt);
+        // improves[5] = client_cross(&InitSolution, inst_tasks_vt);
+
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            improves[1] = client1_single_insertion(InitSolution, inst_tasks_vt);
+            if (improves[1] && IndiListLength <= AXVSIZE - 1)
+            {
+                IndiListLength ++;
+                copy_individual(&IndiList[IndiListLength], &best1_si_solution);
+            }
+            
+                
+            #pragma omp section
+            improves[2] = client1_double_insertion(InitSolution, inst_tasks_vt);
+            if (improves[2]  && IndiListLength <= AXVSIZE - 1)
+            {
+                IndiListLength ++;
+                copy_individual(&IndiList[IndiListLength], &best1_di_solution);
+            }
+
+            #pragma omp section
+            improves[3] = client1_swap(InitSolution, inst_tasks_vt);
+            if (improves[3]  && IndiListLength <= AXVSIZE - 1)
+            {
+                IndiListLength ++;
+                copy_individual(&IndiList[IndiListLength], &best1_swap_solution);
+            }
+
+            #pragma omp section
+            improves[4] = client1_reverse(InitSolution, inst_tasks_vt);
+            if (improves[4]  && IndiListLength <= AXVSIZE - 1)
+            {
+                IndiListLength ++;
+                copy_individual(&IndiList[IndiListLength], &best1_rev_solution);
+            }
+
+            #pragma omp section
+            improves[5] = client1_cross(InitSolution, inst_tasks_vt);
+            if (improves[5]  && IndiListLength <= AXVSIZE - 1)
+            {
+                IndiListLength ++;
+                copy_individual(&IndiList[IndiListLength], &best1_cross_solution);
+            }
+        }
+
+        finish_t = clock();
+        duration = (double)(finish_t - start_t) / CLOCKS_PER_SEC;
+        terminate_flag = 0;
+        for (int i = 1; i <= 5; i++)
+        {
+            // printf("%d\t", improves[i]);
+            terminate_flag += improves[i];
+        }
+        // printf("\n");
+
+        int flag = update1_global_best();
+
+        switch (flag)
+        {
+        case 1:
+            copy_individual(InitSolution, &best1_si_solution);
+            break;
+        case 2:
+            copy_individual(InitSolution, &best1_di_solution);
+            break;
+        case 3:
+            copy_individual(InitSolution, &best1_swap_solution);
+            break;
+        case 4:
+            copy_individual(InitSolution, &best1_rev_solution);
+            break;
+        case 5:
+            copy_individual(InitSolution, &best1_cross_solution);
+            break;
+        default:
+            break;
+        }
+
+        if (terminate_flag == 0 || duration > terminal_duration)
+        {
+            break;
+        }
+        // printf("1 -> Log: %d %d\n", InitSolution->TotalCost, terminate_flag);
+    }
+    total_time += duration;
+    // printf("1 -> Log: %d\n", InitSolution->TotalCost);
+    
+}
+
+void method(Individual InitSolution, const Task *inst_tasks_vt)
+{
+    copy_individual(&best_si_solution, &InitSolution);
+    copy_individual(&best_di_solution, &InitSolution);
+    copy_individual(&best_swap_solution, &InitSolution);
+    copy_individual(&best_rev_solution, &InitSolution);
+    copy_individual(&best_cross_solution, &InitSolution);
+
+    int improves[6];
+    int terminate_flag = 0;
+
+    clock_t start_t, finish_t;
+    start_t = clock();
+    double duration = 0.0, duration1=0.0;
+    
+    while (1)
+    {
+        memset(improves, 0, sizeof(improves));
+        // printf("Log: %d %d\n", InitSolution.TotalCost, additional_cost);
+
+        // improves[1] = client_single_insertion(&InitSolution, inst_tasks_vt);
+        // improves[2] = client_double_insertion(&InitSolution, inst_tasks_vt);
+        // improves[3] = client_swap(&InitSolution, inst_tasks_vt);
+        // improves[4] = client_reverse(&InitSolution, inst_tasks_vt);
+        // improves[5] = client_cross(&InitSolution, inst_tasks_vt);
+
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            improves[1] = client_single_insertion(&InitSolution, inst_tasks_vt);
+                
+            #pragma omp section
+            improves[2] = client_double_insertion(&InitSolution, inst_tasks_vt);
+
+            #pragma omp section
+            improves[3] = client_swap(&InitSolution, inst_tasks_vt);
+
+            #pragma omp section
+            improves[4] = client_reverse(&InitSolution, inst_tasks_vt);
+
+            #pragma omp section
+            improves[5] = client_cross(&InitSolution, inst_tasks_vt);
+        }
+
+        finish_t = clock();
+        duration = (double)(finish_t - start_t) / CLOCKS_PER_SEC;
+        terminate_flag = 0;
+        for (int i = 1; i <= 5; i++)
+        {
+            // printf("%d\t", improves[i]);
+            terminate_flag += improves[i];
+        }
+        // printf("\n");
+
+        int flag = update_global_best();
+        float rnum = (float) rand() / RAND_MAX;
+        if ( rnum < 0)
+        {
+            flag = rand_choose(5);
+        }
+        // printf("%d\n", flag);
+        switch (flag)
+        {
+        case 1:
+            copy_individual(&InitSolution, &best_si_solution);
+            break;
+        case 2:
+            copy_individual(&InitSolution, &best_di_solution);
+            break;
+        case 3:
+            copy_individual(&InitSolution, &best_swap_solution);
+            break;
+        case 4:
+            copy_individual(&InitSolution, &best_rev_solution);
+            break;
+        case 5:
+            copy_individual(&InitSolution, &best_cross_solution);
+            break;
+        default:
+            break;
+        }
+        if (terminate_flag == 0 || duration > terminal_duration)
+        {
+            break;
+        }
+        // printf("0 -> Log: %d %d\n", InitSolution.TotalCost, terminate_flag);
+    }
+    printf("0 -> Log: %d time: %f \n", InitSolution.TotalCost, duration);
+}
+
+
+
+
+int update_global_best()
+{
+    int cost[6];
+    cost[1] = best_si_solution.TotalCost;
+    cost[2] = best_di_solution.TotalCost;
+    cost[3] = best_swap_solution.TotalCost;
+    cost[4] = best_rev_solution.TotalCost;
+    cost[5] = best_cross_solution.TotalCost;
+
+
+    int i, k = 0;
+    int mincost = INF;
+
+    for (i = 1; i <= 5; i++)
+    {
+        // printf("%d \t", cost[i]);
+        if (cost[i] < mincost)
+        {
+            mincost = cost[i];
+            k = i;
+        }
+    }
+    // printf("minvalue:%d, minindex:%d \n", mincost, k);
+    return k;
+}
+
+int update1_global_best()
+{
+    int cost[6];
+    cost[1] = best1_si_solution.TotalCost;
+    cost[2] = best1_di_solution.TotalCost;
+    cost[3] = best1_swap_solution.TotalCost;
+    cost[4] = best1_rev_solution.TotalCost;
+    cost[5] = best1_cross_solution.TotalCost;
+
+
+    int i, k = 0;
+    int mincost = INF;
+
+    for (i = 1; i <= 5; i++)
+    {
+        // printf("%d \t", cost[i]);
+        if (cost[i] < mincost)
+        {
+            mincost = cost[i];
+            k = i;
+        }
+    }
+    // printf("minvalue:%d, minindex:%d \n", mincost, k);
+    return k;
+}
+
+
+void copy_individual(Individual *dest, Individual *src)
+{
+    memcpy(dest->Sequence, src->Sequence, sizeof(src->Sequence));
+    memcpy(dest->Loads, src->Loads, sizeof(src->Loads));
+    dest->TotalCost = src->TotalCost;
+}
+
+void get_first_solution(Individual *solution, const Task *inst_tasks)
+{
+    int ServMark[2*req_edge_num+1]; // the mark for served tasks
+    memset(ServMark, 1, sizeof(ServMark));
+    path_scanning(solution, inst_tasks, ServMark);
+}
+
+void process_rmstate(const Task *inst_tasks_vt, Rmstate *rms, Individual *solution)
+{
+    int i,j;
+    int task_seq[MAX_TASK_SEQ_LENGTH];
+    int actual_req_edge_num = req_edge_num - rms->point[0];
+
+
+    for (i = 1; i <= rms->rroutes[0][0]; i++)
+    {
+        for (j = 1; j <= rms->rroutes[i][0]; j++)
+        {
+            if (rms->rroutes[i][j] > actual_req_edge_num)
+            {
+                rms->rroutes[i][j] += rms->point[0];
+            }
+        }
+    }
+
+    memset(task_seq, 0, sizeof(task_seq));
+    task_seq[0] = 1;
+    int load = 0;
+    for (i = 1; i <= rms->point[0]; i++)
+    {
+        task_seq[0] ++;
+        task_seq[task_seq[0]] =  actual_req_edge_num + i;
+        // rms->rroutes[i][1] = actual_req_edge_num + i;
+        JoinArray(task_seq, rms->rroutes[i]); // one more zero ***
+        
+        // rms->rroutes
+    }
+    memcpy(solution->Sequence, task_seq, sizeof(task_seq));
+    solution->TotalCost = get_task_seq_total_cost(task_seq, inst_tasks_vt);
+}
+
+int get_additional_cost(Rmstate *rms)
+{
+    int total_cost = 0;
+    for (int i = 1; i <= rms->point[0]; i++)
+    {
+        total_cost += min_cost[rms->point[i]][DEPOT];
+        // rms->rroutes
+    }
+    return total_cost;
+}

@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/hao/Documents/losp/heuristic.h
+
+/home/hao/Documents/losp/lsoperator.h
+utils.h
+/home/hao/Documents/losp/utils.h
+
+/home/hao/Documents/losp/main.c
+stdlib.h
+-
+stdio.h
+-
+omp.h
+-
+utils.h
+/home/hao/Documents/losp/utils.h
+heuristic.h
+/home/hao/Documents/losp/heuristic.h
+lsoperator.h
+/home/hao/Documents/losp/lsoperator.h
+
+/home/hao/Documents/losp/utils.h
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+time.h
+-
+math.h
+-
+

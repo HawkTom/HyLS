@@ -1,0 +1,62 @@
+[
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/main.c.o   -c /home/hao/Documents/losp/main.c",
+  "file": "/home/hao/Documents/losp/main.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/utils.c.o   -c /home/hao/Documents/losp/utils.c",
+  "file": "/home/hao/Documents/losp/utils.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/MAENS/MAENS.c.o   -c /home/hao/Documents/losp/MAENS/MAENS.c",
+  "file": "/home/hao/Documents/losp/MAENS/MAENS.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/heuristic.c.o   -c /home/hao/Documents/losp/heuristic.c",
+  "file": "/home/hao/Documents/losp/heuristic.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/simulator.c.o   -c /home/hao/Documents/losp/simulator.c",
+  "file": "/home/hao/Documents/losp/simulator.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/arrayoperations.c.o   -c /home/hao/Documents/losp/arrayoperations.c",
+  "file": "/home/hao/Documents/losp/arrayoperations.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/MAENS/operators.c.o   -c /home/hao/Documents/losp/MAENS/operators.c",
+  "file": "/home/hao/Documents/losp/MAENS/operators.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/lsoperator.c.o   -c /home/hao/Documents/losp/lsoperator.c",
+  "file": "/home/hao/Documents/losp/lsoperator.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/ls.c.o   -c /home/hao/Documents/losp/ls.c",
+  "file": "/home/hao/Documents/losp/ls.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/MASDC/MASDC.c.o   -c /home/hao/Documents/losp/MASDC/MASDC.c",
+  "file": "/home/hao/Documents/losp/MASDC/MASDC.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/MASDC/MASDCop.c.o   -c /home/hao/Documents/losp/MASDC/MASDCop.c",
+  "file": "/home/hao/Documents/losp/MASDC/MASDCop.c"
+},
+{
+  "directory": "/home/hao/Documents/losp/build",
+  "command": "/usr/bin/gcc-7   -g   -o CMakeFiles/losp.dir/others.c.o   -c /home/hao/Documents/losp/others.c",
+  "file": "/home/hao/Documents/losp/others.c"
+}
+]
